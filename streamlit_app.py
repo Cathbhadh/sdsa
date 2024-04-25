@@ -21,7 +21,7 @@ st.write(
     "<style>div.block-container{padding-top:2rem;}</style>", unsafe_allow_html=True
 )
 
-DEFAULTSIZE: int = 250
+DEFAULTSIZE: int = 150
 
 
 def human_moon(observer):
