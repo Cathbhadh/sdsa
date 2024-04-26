@@ -1,5 +1,7 @@
 import ephem
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict, Optional, Generator
+from requests.exceptions import RequestException
+from backoff import expo
 from abc import ABC, abstractmethod
 from datetime import timedelta, datetime
 import uuid
@@ -21,6 +23,8 @@ st.write(
     "<style>div.block-container{padding-top:2rem;}</style>", unsafe_allow_html=True
 )
 
+MAX_RETRIES = 5
+BACKOFF_FACTOR = 2
 DEFAULTSIZE: int = 500
 
 
@@ -110,31 +114,46 @@ class APIClient:
         except requests.HTTPError:
             return False
 
-    st.cache_data(ttl=7200)
-    def get_posts(
-        _self, user_id: str, limit: int = DEFAULTSIZE, offset: int = 0
-    ) -> List[Dict]:
+    def get_posts(self, user_id: str, limit: int = DEFAULTSIZE, offset: int = 0) -> Generator[List[Dict], None, None]:
+        """
+        Fetches posts for a given user ID from the API, handling pagination and retries.
+    
+        Args:
+            user_id (str): The user ID for which to fetch posts.
+            limit (int, optional): The maximum number of posts to fetch per request. Defaults to DEFAULTSIZE.
+            offset (int, optional): The offset from which to start fetching posts. Defaults to 0.
+    
+        Yields:
+            List[Dict]: A batch of posts from the API.
+        """
         params = {"limit": limit, "offset": offset}
-        posts = []
+        url = self._format_api_url(user_id)
+    
+        @expo(max_retries=MAX_RETRIES, backoff_factor=BACKOFF_FACTOR)
+        def fetch_posts() -> List[Dict]:
+            response = self.session.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            batch_posts = data.get("posts", []) if isinstance(data, dict) else data
+            return batch_posts
+    
         while True:
             try:
-                url = _self._format_api_url(user_id)
-                response = _self.session.get(url, params=params)
-                response.raise_for_status()
-                data = response.json()
-                batch_posts = data.get("posts", []) if isinstance(data, dict) else data
-                if not batch_posts:
-                    break
-                current_length = len(posts)
-                posts.extend(_self.data_transformer.standardize_posts(batch_posts))
-                if len(batch_posts) < limit:
-                    break
-                params["offset"] += len(batch_posts)
-                if len(posts) == current_length:
-                    break
-            except requests.exceptions.RequestException:
+                batch_posts = fetch_posts()
+            except RequestException as e:
+                print(f"Error fetching posts: {e}")
                 break
-        return posts
+    
+            if not batch_posts:
+                break
+    
+            batch_posts = self.data_transformer.standardize_posts(batch_posts)
+            yield batch_posts
+    
+            if len(batch_posts) < limit:
+                break
+    
+            params["offset"] += len(batch_posts)
 
 
 class YDStats:
