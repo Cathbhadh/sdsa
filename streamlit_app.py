@@ -177,7 +177,7 @@ class YDStats:
         return self.data_transformer.validate_uuid(self._user_id)
 
     def fetch_data(self, posts):
-        self.posts = posts
+        self.posts = list(posts)  # Convert generator to list
         is_valid_uuid = self.validate_uuid()
         user_exists = (
             self.api_client.check_user_exists(self._user_id) if is_valid_uuid else False
@@ -187,7 +187,7 @@ class YDStats:
         elif not user_exists:
             st.error("User ID not found")
         else:
-            if len(self.posts) == 0:
+            if not self.posts:  # Check if the list is empty
                 st.warning("This user has no posts")
             else:
                 self.show_metrics()
