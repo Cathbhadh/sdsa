@@ -21,7 +21,7 @@ st.write(
     "<style>div.block-container{padding-top:2rem;}</style>", unsafe_allow_html=True
 )
 
-DEFAULTSIZE: int = 150
+DEFAULTSIZE: int = 500
 
 
 def human_moon(observer):
@@ -115,7 +115,6 @@ class APIClient:
         _self, user_id: str, limit: int = DEFAULTSIZE, offset: int = 0
     ) -> List[Dict]:
         params = {"limit": limit, "offset": offset}
-        headers = {"Accept-Encoding": "gzip, deflate"}
         posts = []
         while True:
             try:
