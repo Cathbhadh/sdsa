@@ -119,7 +119,7 @@ class APIClient:
         while True:
             try:
                 url = _self._format_api_url(user_id)
-                response = _self.session.get(url, params=params, headers=headers)
+                response = _self.session.get(url, params=params)
                 response.raise_for_status()
                 data = response.json()
                 batch_posts = data.get("posts", []) if isinstance(data, dict) else data
